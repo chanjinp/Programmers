@@ -19,19 +19,11 @@ public class Spicy {
         for(int s : scoville){
             minHeap.offer(s);
         }
-        //TODO 수정 전
-        while(minHeap.peek() < K) { //2개 이상일 경우 섞을 수 있으니까.
+        // 가장 안 매운 게 K보다 작고, 섞을 음식이 2개 이상 있을 때만 반복
+        while (minHeap.size() >= 2 && minHeap.peek() < K) { //수정 후
             int first = minHeap.poll();
-
-            if(first >= K) { //최소의 값을 뽑았는데, 스코빌 지수 기준 치보다 이상이라면, 반복문 탈출
-                break;
-            }
-
-            int second =  minHeap.poll();
-
-            int newScovile = first + (second * 2);
-
-            minHeap.offer(newScovile);
+            int second = minHeap.poll();
+            minHeap.offer(first + (second * 2));
             answer++;
         }
 
