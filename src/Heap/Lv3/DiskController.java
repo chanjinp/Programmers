@@ -12,47 +12,33 @@ public class DiskController {
     }
 
     public static int solution(int[][] jobs) {
-        int answer = 0;
-
-        // 요청 시점에 따라 정렬
         Arrays.sort(jobs, (a, b) -> a[0] - b[0]);
 
         PriorityQueue<Job> queue = new PriorityQueue<>();
-        int time = 0; //시작 시점
-        int waitCount = 0; //대기 큐에 들어간 개수
-        int count = 0; // 작업 완료한 디스크 개수
+        int time = 0;
+        int idx = 0; // 몇 번째 job까지 대기 큐에 고려했는지
+        int count = 0; // 완료한 작업 수
+        int answer = 0;
 
         while (count < jobs.length) {
-            if(waitCount < jobs.length) {
-                for (int i = waitCount; i < jobs.length; i++) {
-                    if (time == jobs[i][0]) { //요청 시점이랑 같으면 넣는다.
-                        queue.offer(new Job(jobs[i][1], jobs[i][0], i));
-                    }
-                }
-
-                waitCount += queue.size();
+            // 1. 현재 시점(time) 이전에 요청된 모든 작업을 큐에 추가
+            while (idx < jobs.length && jobs[idx][0] <= time) {
+                queue.offer(new Job(jobs[idx][1], jobs[idx][0], idx));
+                idx++;
             }
 
-
-            if(!queue.isEmpty()) {
+            // 2. 큐가 비어있다면, 다음 요청이 올 때까지 시간 점프
+            if (queue.isEmpty()) {
+                time = jobs[idx][0];
+            } else {
+                // 3. 작업 수행
                 Job job = queue.poll();
-                time = time + job.jobTime;
-
-                if(waitCount < jobs.length) {
-                    for (int i = waitCount; i < jobs.length; i++) {
-                        if (time >= jobs[i][0]) { //요청 시점보다 작을 경우에 넣는다 (이유: 하드 작업이 끝난 시점으로 시간을 건너 뛰어서
-                            queue.offer(new Job(jobs[i][1], jobs[i][0], i));
-                        }
-                    }
-                    waitCount += queue.size();
-                }
+                time += job.jobTime;
+                answer += (time - job.reqTime);
                 count++;
-
-                answer += time - job.reqTime;
             }
         }
-
-        return answer / count;
+        return answer / jobs.length;
     }
 
     static class Job implements Comparable<Job> {
