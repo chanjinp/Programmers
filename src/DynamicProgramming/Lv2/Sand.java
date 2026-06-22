@@ -1,6 +1,8 @@
 package DynamicProgramming.Lv2;
 
 import java.util.Arrays;
+import java.util.Deque;
+import java.util.LinkedList;
 
 public class Sand {
     public static void main(String[] args) {
@@ -14,20 +16,39 @@ public class Sand {
     }
 
     public static int[] solution(int m, int n, int h, int w, int[][] drops) {
-        int[] answer = {0, 0};
-
-        // 1. m x n 크기의 격자판 생성
+        // 1. 격자판 및 기본 가중치 기록
         int[][] sand = new int[m][n];
+        for (int[] row : sand) Arrays.fill(row, Integer.MAX_VALUE); // 빈 곳은 무한대로 초기화
 
-        // 2. 빗방울 가중치 기록 (0번째 비는 1, 1번째 비는 2 ... 오버플로우 방지 및 식별용)
         for (int i = 0; i < drops.length; i++) {
-            int x = drops[i][0];
-            int y = drops[i][1];
-            sand[x][y] = i + 1;
+            sand[drops[i][0]][drops[i][1]] = i + 1;
         }
 
-        // 선인장 시작점(startX, startY)이 가질 수 있는 최대 한계치 설정
-        // x축 방향으로는 세로 길이(h)만큼, y축 방향으로는 가로 길이(w)만큼 공간이 확보되어야 합니다.
+        // 2. 가로 방향(너비 w)에 대한 최솟값 압축 배열 생성
+        // rowMin[i][j] = i번째 행의 j부터 j+w-1까지 중 최솟값
+        int[][] rowMin = new int[m][n - w + 1];
+        for (int i = 0; i < m; i++) {
+            Deque<Integer> deque = new LinkedList<>();
+            for (int j = 0; j < n; j++) {
+                // 범위를 벗어난 인덱스는 덱에서 제거
+                if (!deque.isEmpty() && deque.peekFirst() < j - w + 1) {
+                    deque.pollFirst();
+                }
+                // 현재 값보다 큰 이전 값들은 최솟값 경쟁에서 밀리므로 제거
+                while (!deque.isEmpty() && sand[i][deque.peekLast()] >= sand[i][j]) {
+                    deque.pollLast();
+                }
+                deque.offerLast(j);
+
+                // 윈도우 크기 w를 충족했을 때부터 최솟값 기록
+                if (j >= w - 1) {
+                    rowMin[i][j - w + 1] = sand[i][deque.peekFirst()];
+                }
+            }
+        }
+
+        // 3. 세로 방향(높이 h)에 대한 최솟값 최종 압축 (선인장 크기 w x h 완성)
+        // 최종적으로 이중 for문 내부에서 O(1) 만에 최솟값을 꺼낼 수 있게 지도를 만듭니다.
         int endX = m - h;
         int endY = n - w;
 
@@ -35,43 +56,37 @@ public class Sand {
         int saveY = 0;
         int max = -1;
 
-        // 3. 안정적인 이중 for문 탐색
-        for (int startX = 0; startX <= endX; startX++) {
-            for (int startY = 0; startY <= endY; startY++) {
+        for (int startY = 0; startY <= endY; startY++) {
+            Deque<Integer> deque = new LinkedList<>();
+            for (int startX = 0; startX < m; startX++) {
+                if (!deque.isEmpty() && deque.peekFirst() < startX - h + 1) {
+                    deque.pollFirst();
+                }
+                while (!deque.isEmpty() && rowMin[deque.peekLast()][startY] >= rowMin[startX][startY]) {
+                    deque.pollLast();
+                }
+                deque.offerLast(startX);
 
-                int minNumber = Integer.MAX_VALUE;
+                if (startX >= h - 1) {
+                    int currentX = startX - h + 1;
+                    int minNumber = rowMin[deque.peekFirst()][startY];
 
-                // 현재 (startX, startY) 위치에서 선인장 크기만큼 내부 탐색
-                // 행(x)은 h(세로)만큼, 열(y)은 w(가로)만큼 확장합니다.
-                for (int x = startX; x < startX + h; x++) {
-                    for (int y = startY; y < startY + w; y++) {
-                        int s = sand[x][y];
-                        if (s > 0) {
-                            minNumber = Math.min(minNumber, s);
-                        }
+                    // 비를 안 맞은 완벽한 명당 발견 시 즉시 반환
+                    if (minNumber == Integer.MAX_VALUE) {
+                        return new int[]{currentX, startY};
                     }
-                }
 
-                // 비를 한 방울도 안 맞는 명당을 찾았다면 즉시 정답으로 반환!
-                if (minNumber == Integer.MAX_VALUE) {
-                    answer[0] = startX;
-                    answer[1] = startY;
-                    return answer;
-                }
-
-                // 비를 피할 수 없다면, 최솟값 중 최댓값(가장 늦게 비를 맞는 곳) 갱신
-                if (minNumber > max) {
-                    saveX = startX;
-                    saveY = startY;
-                    max = minNumber;
+                    // 최소 가중치 중 최댓값 갱신
+                    if (minNumber > max) {
+                        saveX = currentX;
+                        saveY = startY;
+                        max = minNumber;
+                    }
                 }
             }
         }
 
-        answer[0] = saveX;
-        answer[1] = saveY;
-
-        return answer;
+        return new int[]{saveX, saveY};
     }
 }
 
@@ -100,5 +115,4 @@ public class Sand {
 
 단, 이렇게 구했을 경우 사막이 제한이 없을 경우에는 시간초과가 뜬다 (매번 선인장 배치를 봐야하기 떄문)
 
-TODO 그러므로, 미리 비 온 곳의 누적함을 구하여 확인한다 (DP) << 해당 알고리즘 학습 필요
 */
